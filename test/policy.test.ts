@@ -9,6 +9,7 @@ const selfPn = '551100000001@s.whatsapp.net';
 const peerPn = '551100000002@s.whatsapp.net';
 const config: Config = {
   apiKey: '', model: '', transcriptionModel: '', databasePath: '', allowedJids: new Set(), pairOnly: false,
+  dashboardOnly: false, dashboardPort: 0, timeZone: 'America/Sao_Paulo',
 };
 function message(id: string, content: proto.IMessage, key: Partial<WAMessage['key']> = {}): WAMessage {
   return { key: { id, remoteJid: selfPn, fromMe: true, ...key }, message: content };

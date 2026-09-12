@@ -5,7 +5,7 @@ import pino from 'pino';
 import { getAttachment, normalizePrivateJid, selectCommands } from './policy.ts';
 import type { Store } from './store.ts';
 import { UserInputError } from './types.ts';
-import type { Attachment, Command, Config, Identity, Media, PreparedInput } from './types.ts';
+import type { Attachment, Command, Config, Identity, Media, OutboundDocument, PreparedInput } from './types.ts';
 
 const logger = pino({ level: 'silent' });
 const maxMediaBytes = 20 * 1024 * 1024;
@@ -60,7 +60,7 @@ interface Callbacks {
 }
 
 export interface WhatsApp {
-  send(command: Command, text: string): Promise<void>;
+  send(command: Command, text: string, document?: OutboundDocument): Promise<void>;
   download(command: Command): Promise<PreparedInput>;
   close(): void;
 }
@@ -219,10 +219,12 @@ export function createWhatsApp(config: Config, store: Store, callbacks: Callback
     return current;
   }
 
-  async function send(command: Command, text: string): Promise<void> {
+  async function send(command: Command, text: string, document?: OutboundDocument): Promise<void> {
     const connection = ready(command);
     try {
-      const sent = await connection.socket.sendMessage(command.replyJid, { text: `SofIA: ${text}`, linkPreview: null });
+      const sent = await connection.socket.sendMessage(command.replyJid, document
+        ? { document: document.bytes, mimetype: document.mimeType, fileName: document.filename, caption: `SofIA: ${text}` }
+        : { text: `SofIA: ${text}`, linkPreview: null });
       if (!sent) throw new Error('No sent message.');
       store.cacheMessage(command.accountId, sent);
     } catch {

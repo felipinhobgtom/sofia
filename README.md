@@ -1,99 +1,157 @@
 # SofIA — CloudSix
 
-**Secretária virtual e sistema de gestão inteligente, com abordagem WhatsApp-First, Web-Extended.**
+**Secretária virtual e gestão local: WhatsApp-First, Web-Extended.**
 
-> **Status do repositório:** MVP conversacional por áudio em TypeScript, com a sua própria conta do WhatsApp conectada por Baileys e IA pela Groq. Você envia a voz, a SofIA responde em texto. O ERP/CRM e o dashboard descritos no documento oficial continuam como escopo planejado, não funcionalidades já entregues.
+> **Estado atual:** agente por áudio na sua própria conta do WhatsApp, com Baileys e IA exclusivamente pela Groq, integrado a um dashboard React/Vite. Clientes, serviços, visitas, orçamentos com PDF, catálogo de materiais, movimentações de estoque e caixa são registros reais no SQLite local. Ações de gestão por voz exigem confirmação em um novo áudio; o painel consulta e salva os mesmos dados. Não há dados de demonstração pré-carregados.
 
-## Referências do projeto
+## Referências e cobertura
 
 - **Fonte oficial de escopo:** [Descrição do Agente CloudSix — aba SofIA](https://docs.google.com/document/d/1bdl3aO33JhW88fJatrre9h1xCd7R32TM6FBTO6l92k0/edit?tab=t.jo3qj0l5spdi).
-- **Arquitetura atual e evolução:** [Conector Baileys, operação e avaliação das ferramentas](ARQUITETURA.md).
+- **Implementação, limites e avaliação dos 12 links:** [ARQUITETURA.md](ARQUITETURA.md).
+- As sete funcionalidades oficiais permanecem descritas na seção 5, distinguindo a parte entregue do que ainda é evolução de produto.
 
-O escopo de gestão abaixo resume o documento oficial. Usar a própria conta com Baileys, em vez da Cloud API, é a escolha explícita para este MVP. As propostas futuras de frameworks e infraestrutura em ARQUITETURA.md não são decisões atribuídas ao documento de produto.
+A instalação atual é **local, para uma conta e um espaço de trabalho por `DATABASE_PATH`**. Next.js, Auth0, PostgreSQL e storage S3 não são usados nem pré-requisitos do painel. Não há serviço Cloud API da Meta no caminho implementado.
 
-## MVP conversacional por áudio — usar agora
-
-O conector usa a **sua própria conta do WhatsApp**, vinculada como um dispositivo pelo Baileys, e conversa com a **API Groq**. O **OpenAI Agents SDK** e o pacote npm `openai` permanecem como bibliotecas open source de orquestração/cliente, configuradas exclusivamente para `https://api.groq.com/openai/v1`: a conversa usa **Chat Completions**, não Responses, e o tracing está desativado. Não há chamadas, traces, consumo de créditos ou fallback para a API OpenAI.
-
-**Um áudio novo no chat autorizado é o pedido**, sem palavra-chave ou mensagem de ativação. A SofIA transcreve a voz e responde em texto; também pode analisar uma imagem ou PDF ao qual esse áudio esteja respondendo. Texto, foto e PDF enviados sozinhos não ativam o agente. **Não cadastra clientes, não altera estoque ou caixa, não muda o Kanban, não agenda lembretes e não gera PDFs de orçamento.** Pode preparar um rascunho textual, mas isso não equivale a salvar ou enviar uma proposta a um cliente.
+## Usar agora
 
 ### Requisitos e instalação
 
-- **Node.js 24 ou superior** e npm. O TypeScript é executado pelo suporte nativo de remoção de tipos do Node; não há etapa de build para iniciar.
-- Sua conta do WhatsApp no celular, com acesso a **Dispositivos conectados**.
-- Internet e um processo Node em execução para receber comandos e responder.
-- Chave da API Groq, obtida no [console de chaves](https://console.groq.com/keys), com acesso e cota disponível para os modelos configurados. Podem existir cotas gratuitas e limites de uso; não há promessa de uso gratuito ilimitado. **A chave não é necessária para apenas parear.**
-
-Não é preciso webhook, HTTPS público, aplicativo de desenvolvedor Meta, número empresarial nem token do WhatsApp Business. PostgreSQL, S3, Next.js e Auth0 pertencem à proposta do produto completo, não à instalação deste MVP.
+- **Node.js 24 ou superior** e npm. O backend TypeScript roda com remoção nativa de tipos do Node e usa seu SQLite nativo; não precisa de compilação do backend. O frontend React é compilado pelo Vite antes de servir o painel.
+- Para o **painel isolado**, não é necessário pareamento, chave Groq nem conexão com o WhatsApp. Após instalar as dependências, a gestão funciona localmente.
+- Para o **bot**, sua conta do WhatsApp no celular, acesso a **Dispositivos conectados**, internet e chave Groq com acesso/cota para os modelos configurados. Obtenha a chave no [console Groq](https://console.groq.com/keys); cotas gratuitas, limites e preços dependem da conta/modelo, sem promessa de uso gratuito ilimitado.
 
 ```sh
 npm ci
 ```
 
-O repositório inclui `package-lock.json`: use `npm ci` para reproduzir as versões. Sem lockfile, use `npm install`. O pacote `@whiskeysockets/baileys` está **fixado em `7.0.0-rc14`**, uma **release candidate**, não uma promessa de estabilidade. Não troque a versão por `latest` sem revisar as mudanças. A instalação reaplica, via `patch-package` no `postinstall`, as correções de dependências em `patches/`: ajustes de tipos e remoção de dados criptográficos dos logs, preservando os eventos de diagnóstico. Preserve esse hook.
+Use o `package-lock.json` para reproduzir as versões. Baileys está fixado em **`7.0.0-rc14`**, uma release candidate, não uma garantia de estabilidade. Não troque por `latest` sem revisar as mudanças. O hook `postinstall` reaplica com `patch-package` as correções em `patches/`, incluindo ajustes de tipos e remoção de dados criptográficos dos logs das dependências; preserve esse hook.
 
-Na primeira instalação, **somente se `.env` ainda não existir**, copie `.env.example` para `.env` e edite-o localmente; nunca publique a chave. **Para migrar uma instalação existente, preserve seu `.env`: basta ter `GROQ_KEY` nele.** Os modelos abaixo já são os padrões do código. As antigas variáveis `OPENAI_*` não são mais usadas; não é preciso substituir o arquivo, alterar a allowlist, apagar o SQLite ou parear novamente.
-
-Os valores de referência são:
+**Somente se `.env` ainda não existir**, copie `.env.example` para `.env` e edite-o localmente. Em uma instalação existente, **preserve o `.env`, o caminho do banco e a sessão vinculada**. A ampliação das tabelas é aditiva no mesmo SQLite: não apague dados nem faça novo pareamento para obter o dashboard. As antigas variáveis `OPENAI_*` não são usadas.
 
 | Variável | Valor / uso |
 | --- | --- |
-| `GROQ_KEY` | Sua chave local; obrigatória em `npm start`, dispensada em `npm run pair`. O nome é exatamente `GROQ_KEY`, não `GROQ_API_KEY`. |
-| `GROQ_MODEL` | `qwen/qwen3.6-27b`, modelo de texto e visão atualmente em preview, usado em modo não pensante (`reasoning_effort=none`), para a conversa e a análise das referências citadas. |
-| `GROQ_TRANSCRIPTION_MODEL` | `whisper-large-v3-turbo` para os pedidos por áudio, com transcrição em português (`language=pt`, fixo no conector; não exige outra variável de ambiente). |
-| `WHATSAPP_ALLOWED_JIDS` | Vazio: somente a conversa consigo mesmo. Lista opcional de JIDs privados separados por vírgula. |
-| `DATABASE_PATH` | `./data/sofia.sqlite`; sessão do dispositivo, inbox/deduplicação e contexto textual. |
+| `GROQ_KEY` | Chave local, obrigatória em `npm start`, dispensada em `npm run dashboard` e `npm run pair`. O nome é exatamente `GROQ_KEY`, não `GROQ_API_KEY`. |
+| `GROQ_MODEL` | `qwen/qwen3.6-27b`, texto/visão em preview, em modo não pensante (`reasoning_effort=none`). |
+| `GROQ_TRANSCRIPTION_MODEL` | `whisper-large-v3-turbo`; a transcrição usa português (`language=pt`), fixo no conector. |
+| `WHATSAPP_ALLOWED_JIDS` | Vazio: somente a conversa consigo mesmo. JIDs privados adicionais habilitam conversa, **não acesso aos dados de gestão**. |
+| `DATABASE_PATH` | `./data/sofia.sqlite`; sessão/chaves, inbox/contexto, dados de negócio e operações de confirmação duráveis. Um espaço de trabalho por arquivo. |
+| `TIME_ZONE` | `America/Sao_Paulo`; fuso IANA usado pela agenda, datas locais e contexto de gestão. |
+| `DASHBOARD_PORT` | `3000`; painel vinculado somente a `127.0.0.1`. |
 
-### Vincular e iniciar
+### Modos de execução
 
-1. **Se ainda não houver uma sessão vinculada**, execute `npm run pair`. No celular, abra **WhatsApp → Dispositivos conectados → Conectar dispositivo** e leia o QR exibido no terminal. Trate o QR como uma credencial temporária; não o compartilhe.
-2. O comando de pareamento termina quando a conexão é estabelecida e a sessão é salva. Ele **não chama provedores de IA nem precisa de `GROQ_KEY`**.
-3. Com `GROQ_KEY` presente no `.env`, execute `npm start`. Mantenha esse processo ativo. Reiniciar ou trocar o provedor de IA reutiliza a sessão local; não exige outro QR enquanto o vínculo for válido.
-4. Use `Ctrl+C` para parar. Isso não desvincula a conta nem apaga a sessão. Para revogar o acesso, remova o dispositivo pelo WhatsApp no celular. Não há logout ou reset automático.
+| Comando | O que inicia | Chave Groq / WhatsApp |
+| --- | --- | --- |
+| `npm run dashboard` | Compila o frontend e inicia **somente o servidor web local**. Abra **http://127.0.0.1:3000** (ou a porta configurada). | Não precisa de chave, não conecta ao WhatsApp e não apresenta QR. |
+| `npm run pair` | Pareia pelo QR do terminal, salva a sessão e termina. **Não inicia o painel.** | Não precisa de chave e não chama IA. |
+| `npm start` | Compila o frontend e inicia **bot + servidor web**, usando a mesma base. | Exige `GROQ_KEY`; reutiliza a sessão WhatsApp existente. |
 
-Use **um único processo por conta/banco**; não rode `pair` e `start` ao mesmo tempo nem compartilhe a mesma base entre instâncias.
+`npm run build` executa `vite build` e gera os arquivos estáticos em `web/dist/`; os hooks `prestart` e `predashboard` já executam essa etapa. O servidor Node serve os arquivos junto à API de gestão. Não é preciso manter um servidor de desenvolvimento Vite separado, e o backend continua executando os arquivos TypeScript nativamente no Node 24.
 
-### Falar com a SofIA
+Para usar o WhatsApp:
 
-Por padrão, abra a conversa **com você mesmo** no WhatsApp e **envie uma mensagem de voz normalmente**. Não precisa escrever antes nem citar o próprio áudio. Por exemplo, grave:
+1. Se ainda não houver sessão, execute `npm run pair`. No celular, abra **WhatsApp → Dispositivos conectados → Conectar dispositivo** e leia o QR. O QR é uma credencial temporária; não o compartilhe.
+2. Aguarde o pareamento terminar. Com `GROQ_KEY` no `.env`, execute `npm start` e mantenha o processo ativo.
+3. Abra o painel no endereço local indicado pelo terminal e envie seus pedidos por voz na conversa consigo mesmo.
+4. Use `Ctrl+C` para parar. Isso não apaga a base nem desvincula a conta. Para revogar o vínculo, remova o dispositivo pelo WhatsApp no celular.
 
-> “Prepare um rascunho de orçamento para pintar uma sala. Pergunte os dados que faltarem.”
+Use **um único processo por conta/banco**: não execute `pair`, `dashboard` e `start` simultaneamente sobre a mesma base. Para trocar de painel isolado para bot + painel, pare um modo antes de iniciar o outro. A sessão e os registros permanecem no arquivo configurado.
 
-- **Só voz:** envie o áudio com seu pedido. Ele é transcrito e a SofIA responde em texto. Para continuar, envie outro áudio; pode usar **Responder** no texto do bot. O texto citado não vira anexo: a continuidade usa o histórico textual recente.
-- **Foto:** envie a foto para você mesmo. Use **Responder** nessa foto e grave uma mensagem de voz como “Extraia os itens e valores deste recibo”. O áudio é a instrução e a foto citada é a referência.
-- **PDF:** envie o documento, use **Responder** nele e grave “Resuma este PDF e destaque as condições de pagamento”.
-- **Texto, foto, PDF ou legenda sem áudio:** não iniciam processamento. Apenas imagem/PDF são referências de mídia aceitas; texto citado por um áudio é ignorado como anexo, sem impedir o pedido por voz. Citar outro áudio ou vídeo gera um aviso de referência não suportada.
+### Dashboard: os mesmos registros do bot
 
-Enquanto o processo estiver ativo, **todo áudio novo elegível no chat autorizado é tratado como um pedido à IA**. Não envie ali áudios que não queira compartilhar com a Groq. Não existe janela de ativação para mensagens seguintes: cada áudio é um pedido independente, com o contexto recente da mesma conversa. Respostas do bot são textuais e, portanto, não são confundidas com novos áudios nem criam um ciclo de respostas.
+O painel começa vazio em uma base nova; cadastros e indicadores surgem dos seus registros, não de exemplos fictícios. **Salvar no formulário é a confirmação explícita da alteração**: não exige um segundo áudio. Falha de validação ou conflito não significa gravação concluída.
 
-Para habilitar **outras conversas privadas**, inclua os identificadores exatos em `WHATSAPP_ALLOWED_JIDS`, por exemplo:
+| Área | Operação atual |
+| --- | --- |
+| Visão geral | Indicadores de visitas, propostas, serviços, estoque e caixa derivados do banco. |
+| Clientes e serviços | Cadastro de contatos e dados do cliente; serviços vinculados ao cliente e organizados nas cinco etapas oficiais do Kanban. |
+| Agenda | Visitas com início/fim, local, notas, status e vínculos ao cliente/serviço. Fuso declarado e validação de conflitos entre visitas agendadas. |
+| Orçamentos | Propostas com itens, unidades, quantidades, preços, desconto, validade e status; total calculado e PDF para download. |
+| Materiais e estoque | Catálogo com unidade/custo/estoque mínimo e livro de entradas, consumos/saídas e ajustes, com vínculo opcional ao serviço. |
+| Caixa | Receitas e despesas, categoria, data, cliente/serviço, valores realizados e pendentes; visão por período. |
+
+O mês selecionado delimita visitas, movimentações e lançamentos de caixa. Cadastros, serviços, propostas e saldo atual de estoque são gerais. No caixa, o saldo inicial considera os realizados anteriores ao mês e a série mostra os realizados do período; contas pendentes a receber/pagar mostram as pendências em aberto, não dinheiro já realizado.
+
+A agenda é **interna à SofIA**. Não sincroniza com Google Calendar ou Microsoft e não envia lembretes/follow-ups automáticos pelo WhatsApp. O painel **não mostra o histórico completo de conversas, credenciais, chaves Signal, QR ou telefone da conta vinculada**. Contatos cadastrados como dados de negócio são distintos da identidade técnica do dispositivo.
+
+O servidor aceita acesso em **loopback `127.0.0.1`**, e gravações exigem a mesma origem do painel. **Não há login público nem suporte a hospedagem pública/multiusuário.** Não exponha a porta por túnel, proxy público ou redirecionamento de rede; a máquina e o perfil local do navegador fazem parte da fronteira de confiança. A API entrega dados de negócio, não tabelas de sessão, inbox ou segredos.
+
+### Gestão por voz: propor, revisar, confirmar
+
+No WhatsApp, abra a conversa **com você mesmo** e envie um áudio normalmente; não há prefixo ou palavra-chave para fazer um pedido. Por exemplo:
+
+> “Cadastre a cliente Ana com o telefone e o endereço que vou informar.”
+>
+> “Agende uma visita à Ana amanhã das 9h às 10h no endereço cadastrado.”
+>
+> “Prepare um orçamento para a Ana com os itens, quantidades e preços que vou ditar.”
+>
+> “Registre uma entrada de 20 metros do fio cadastrado para o serviço da Ana.”
+>
+> “Registre como realizado o recebimento de dois mil reais da Ana pelo serviço.”
+
+O agente consulta os registros autorizados, pede informações faltantes e **propõe** uma ação estruturada. Um pedido não é uma gravação: confira no resumo o cliente/serviço, a data e o fuso, a unidade, as quantidades, os valores e o status antes de confirmar.
+
+1. A proposta fica pendente por **15 minutos**, vinculada à sua identidade, conversa e aos **parâmetros exatos** da operação. Há **uma operação pendente por vez**, não um lote oculto de alterações.
+2. Para efetivar, envie **um novo áudio dizendo apenas “confirmar”**. Para desistir, envie **um novo áudio dizendo apenas “cancelar”**. Texto digitado, uma confirmação citada em anexo, “sim” ou pedir e confirmar no mesmo áudio não substituem essa etapa.
+3. A decisão de confirmar/cancelar é **determinística após a transcrição**, fora da escolha do modelo. O agente não dispõe de ferramenta para confirmar sozinho uma operação.
+4. A confirmação revalida os dados no momento da transação: versão desatualizada, estoque insuficiente ou sobreposição de visitas podem impedir a gravação. Um conflito não atualiza silenciosamente a proposta: cancele-a e faça um novo pedido com os dados corretos. Propostas expiradas também precisam ser refeitas e revisadas; uma confirmação antiga não autoriza parâmetros novos.
+5. O sucesso só é informado **após o commit no SQLite**. Ao confirmar um orçamento, o PDF dos dados salvos é anexado à resposta **na conversa consigo mesmo**; não é enviado automaticamente ao cliente.
+
+As consultas não alteram dados. Uma gravação confirmada por voz aparece no dashboard, e uma edição no painel deve ser considerada nas próximas operações por voz. O contexto do modelo não é a fonte da verdade do negócio.
+
+### Valores, estoque e documentos
+
+- **Dinheiro:** centavos inteiros. Quantidades usam unidade explícita e milésimos inteiros (`quantityMilli`); por exemplo, 1,250 metro corresponde a 1.250 milésimos de metro. Totais de itens usam arredondamento determinístico de meio para cima, sem aritmética financeira em ponto flutuante.
+- **Estoque:** o saldo resulta do livro de movimentações; uma saída não pode deixá-lo negativo. Entrada e saída têm quantidades positivas; **ajuste informa o saldo físico final desejado**, e o sistema registra a diferença no livro. Catálogo, entrada e consumo são registros distintos.
+- **Caixa:** `paid` (realizado), `pending` (pendente) e `void` (anulado) são estados diferentes. Pendências não entram como dinheiro já realizado; lançamentos anulados não representam receita/despesa efetiva.
+- **Sem lançamentos implícitos:** uma compra/entrada de estoque não vira despesa paga, e criar/aprovar um orçamento não vira receita ou recebimento. Registre o evento financeiro correspondente explicitamente para evitar dupla contagem.
+- **Orçamento/PDF:** vem da proposta salva, com fotografia dos dados do cliente e dos itens daquele orçamento, número e totais calculados. Não é um rascunho textual do modelo nem uma consulta aos preços atuais do catálogo a cada download. Alterar o cliente/material não reescreve o documento salvo; editar explicitamente o orçamento atualiza sua fotografia do cliente.
+- **Agenda:** horários locais são interpretados em `TIME_ZONE`; visitas têm início/fim e status agendada, realizada ou cancelada. Datas/horários locais inválidos, inexistentes ou ambíguos no fuso são recusados. Visitas agendadas não podem se sobrepor; uma pode começar exatamente quando a anterior termina. Visita salva não é alarme ou mensagem agendada.
+
+### Referências por imagem/PDF e outras conversas
+
+- **Só voz:** o áudio novo autorizado é transcrito e recebe resposta em texto. Continue com outro áudio; pode usar **Responder** no texto do bot, com o contexto textual recente da conversa.
+- **Foto:** envie a imagem, use **Responder** nela e grave “Extraia os itens e valores deste recibo”. A voz é a instrução e a foto é referência. Extrair dados não altera estoque/caixa antes de proposta e confirmação no chat consigo mesmo.
+- **PDF de entrada:** envie o arquivo, responda a ele com voz e peça uma análise. Esse caminho de leitura é distinto da geração de um orçamento PDF salvo.
+- **Texto, foto, PDF ou legenda sem áudio:** não iniciam o agente. Texto citado por voz não vira anexo; citar outro áudio/vídeo é uma referência não suportada. Visualização única não é aberta; vídeos e diário multimodal não estão implementados.
+
+**Todo áudio novo elegível no chat autorizado é um pedido**, enquanto o bot estiver ativo. Não envie ali voz que não queira compartilhar com a Groq. Transcrição, referência citada e contexto relevante seguem ao provedor; no chat consigo mesmo, dados de gestão consultados para atender ao pedido também podem compor esse contexto. O código-fonte e as credenciais da sessão não são enviados à IA.
+
+Para habilitar **outras conversas privadas**, use identificadores exatos, por exemplo:
 
 ```dotenv
 WHATSAPP_ALLOWED_JIDS=5511999999999@s.whatsapp.net,123456789@lid
 ```
 
-Esses valores são exemplos, não contatos configurados. Um JID de telefone (`@s.whatsapp.net`) e um LID (`@lid`) são identidades de domínios diferentes: números iguais não os tornam equivalentes. Nessas conversas, **somente áudios recebidos da outra pessoa** são processados; mensagens enviadas por você a outros contatos são ignoradas. A resposta volta à conversa que recebeu o áudio. Ao habilitar um contato, os novos áudios dele passam a ser pedidos à IA: avise-o antes sobre o envio de voz e referências citadas à Groq, inclusive páginas renderizadas de PDFs.
+Esses valores são exemplos, não contatos configurados. JID de telefone (`@s.whatsapp.net`) e LID (`@lid`) são domínios diferentes; números iguais não os tornam equivalentes. Nesses chats, somente áudios **recebidos da outra pessoa** são processados, e a resposta volta à mesma conversa. Mensagens que você envia para outros contatos são ignoradas.
 
-Grupos, status, newsletters, conversas não autorizadas, mensagens sem áudio e eventos de histórico (`append`) são ignorados. Não há importação do histórico pessoal nem encaminhamento indiscriminado das conversas. Mídia de visualização única não é aberta; vídeos ainda não fazem parte do conector. Só o áudio autorizado, a imagem citada ou as páginas renderizadas/texto do PDF citado, e o contexto textual desses pedidos seguem para a Groq; o código-fonte do projeto não é enviado.
+**A allowlist habilita apenas conversa e análise de referências, sem consulta ou escrita ERP/CRM.** Acesso por voz aos clientes, serviços, agenda, propostas, estoque e caixa fica restrito ao chat consigo mesmo. Avise qualquer terceiro antes de habilitá-lo sobre o envio dos áudios/referências à Groq. Grupos, status, newsletters, chats não autorizados e eventos de histórico (`append`) são ignorados; não há importação indiscriminada de conversas.
 
-O limite é de **20 MiB por anexo**, com download de até **60 segundos**. Imagens aceitas: JPEG, PNG e WebP; documentos: PDF. Áudios aceitos: OGG/Opus, MP3, MP4/M4A, WAV, WebM e FLAC. Não há conversão automática de AAC/AMR nem dependência de FFmpeg; tipos não suportados são recusados. Veja os limites de interpretação e de provedor em [ARQUITETURA.md](ARQUITETURA.md).
+### Provedor e limites de mídia
 
-**PDFs não são enviados como arquivos brutos à API.** Como a Groq não oferece entrada PDF nativa nesse caminho, o conector rasteriza **todas as páginas localmente**, usando `pdfjs-dist` e `@napi-rs/canvas`, e envia as imagens para visão em lotes de **até 3 páginas**, com síntese dos resultados em documentos maiores. Isso preserva a referência visual de páginas digitalizadas, tabelas e imagens, em vez de reduzir o documento somente ao texto extraível. Não há corte silencioso de páginas nem nova dependência de sistema/FFmpeg: as bibliotecas de renderização são instaladas pelo npm.
+O **OpenAI Agents SDK** e o pacote npm `openai` são bibliotecas open source de orquestração/cliente, configuradas exclusivamente para **https://api.groq.com/openai/v1**. A conversa usa **Chat Completions**, não Responses, e o tracing está desativado. Não há chamadas, traces, consumo de créditos ou fallback para a API OpenAI; cabeçalhos herdados de configuração OpenAI não são encaminhados.
 
-O limite conservador de 3 imagens por chamada segue o [cartão do modelo `qwen/qwen3.6-27b`](https://console.groq.com/docs/model/qwen/qwen3.6-27b), embora o guia geral de visão mencione 5. PDFs multipágina exigem mais chamadas à Groq e consomem mais cota; a síntese não garante transcrição integral ou leitura perfeita. A geração tem limite de **800 tokens de saída por chamada**, com **60 segundos por requisição à IA** e **retries=0**. Esse timeout não é um prazo total para um PDF que requer várias chamadas. O limite de saída não elimina as cotas de entrada, visão ou tokens por minuto da conta. Consulte a [documentação Groq](https://console.groq.com/docs/overview), [transcrição](https://console.groq.com/docs/speech-to-text) e [visão](https://console.groq.com/docs/vision).
+- **Anexos:** até **20 MiB** e **60 segundos de download** por arquivo. Imagens JPEG/PNG/WebP; PDFs; áudios OGG/Opus, MP3, MP4/M4A, WAV, WebM e FLAC. AAC/AMR não são convertidos automaticamente; não há FFmpeg no fluxo.
+- **PDF de entrada:** `pdfjs-dist` e `@napi-rs/canvas` rasterizam **todas as páginas localmente**. As imagens seguem à visão Groq em lotes de até **3 páginas**, com síntese para documentos maiores. Não há upload do PDF bruto nem corte silencioso das páginas finais. A análise não garante transcrição integral ou leitura perfeita.
+- **Groq:** transcrição em português (`language=pt`), até **800 tokens de saída por chamada** de geração, **60 segundos por requisição** e **retries=0**. O timeout é por chamada, não um prazo total para um PDF multipágina; mais páginas e chamadas de ferramentas podem consumir mais cota/tempo.
 
-### Estado local, falhas e privacidade
+O limite conservador de 3 imagens segue o [cartão do modelo Qwen3.6-27B](https://console.groq.com/docs/model/qwen/qwen3.6-27b), apesar de o [guia de visão](https://console.groq.com/docs/vision) mencionar 5. Consulte também [transcrição](https://console.groq.com/docs/speech-to-text) e [limites de taxa](https://console.groq.com/docs/rate-limits).
 
-O SQLite guarda as credenciais do dispositivo e chaves Signal, os pedidos por áudio aceitos para processamento durável/deduplicação e as respostas textuais. A sessão do agente recupera as **10 últimas rodadas textuais concluídas** (transcrição do pedido e resposta, até 20 itens); não é o histórico geral do WhatsApp nem um cadastro de negócio. Esse limite de contexto não apaga automaticamente comandos antigos da base. Os anexos não compõem uma biblioteca permanente de arquivos do produto.
+### Persistência, falhas e privacidade
 
-Comandos ainda pendentes sobrevivem ao reinício. Um processamento interrompido ou envio de resultado incerto é marcado como falho: **não há repetição automática de chamadas ao modelo nem reenvio cego de mensagens**. Se houver dúvida, confira a conversa antes de fazer um novo pedido. A reconexão do socket não significa repetir a inferência ou garantir entrega exatamente uma vez.
+O SQLite preserva credenciais do dispositivo, chaves Signal, inbox/deduplicação e contexto textual do conector, junto às **novas tabelas de negócio, propostas de ação e resultados idempotentes**. A migração é aditiva no mesmo arquivo, após a validação da autenticação existente. Não exige reinstalar a conta, resetar a sessão ou copiar dados para um novo banco.
 
-- `.env` e `data/` ficam fora do Git. O banco e seu diretório usam permissões privadas; isso **não é criptografia em repouso**. Proteja a máquina, a chave e os backups; copiar a sessão pode expor a sua conta. Se mudar o caminho do banco, mantenha-o privado e fora do versionamento.
-- Credenciais e corpos de mensagens não devem aparecer em logs ou relatórios de erro. O tracing do Agents SDK é desativado; isso não elimina o tratamento de dados pela API Groq quando você envia um comando. Considere as políticas de dados aplicáveis à sua conta Groq.
-- A inferência/transcrição usa somente a Groq e está sujeita às cotas, limites de taxa e preços da conta/modelo. Os pacotes open source da OpenAI não exigem chave nem créditos OpenAI neste conector. Verificações locais ou de uma chamada isolada à API não equivalem a homologar pareamento e pedidos reais pelo WhatsApp.
-- Baileys é open source (MIT), mas **não é oficial nem afiliado ao WhatsApp/Meta**. Há risco de restrição ou banimento da conta, desconexões e quebras por mudanças de protocolo, agravado pelo uso de uma release candidate. Não há garantia contra detecção, recursos de evasão ou envio em massa.
+A memória conversacional recupera as **10 últimas rodadas textuais concluídas**, até 20 itens de pedido/resposta; isso não importa todo o WhatsApp nem apaga automaticamente registros antigos. O dashboard lê **somente dados de negócio**, não essa memória nem os segredos da conta. Anexos analisados não formam uma biblioteca permanente de fotos/vídeos.
 
-### Comandos de ajuda e verificação local
+Operações pendentes e seus resultados sobrevivem ao reinício; uma mesma operação não deve gerar uma segunda gravação por reentrega. **Isso não garante entrega de mensagem/PDF exatamente uma vez no WhatsApp.** Se o commit ocorreu mas o envio falhou ou ficou incerto, **confira o registro no painel antes de repetir qualquer pedido**. Não há reenvio cego nem repetição automática de chamadas à IA; conexão restaurada não significa resultado entregue. Uma pendência não confirmada não é um registro salvo.
+
+- `.env`, `data/` e `web/dist/` ficam fora do Git. Mantenha qualquer `DATABASE_PATH` alternativo privado e fora do versionamento.
+- Diretório e banco têm permissões privadas; isso **não é criptografia em repouso**. Proteja máquina, navegador, chave Groq e backups, incluindo auxiliares SQLite. Não compartilhe a base como diagnóstico: ela contém a sessão da conta e dados de clientes.
+- Chaves, QR, credenciais e corpos de mensagens não devem aparecer em logs ou relatórios. Desativar tracing não elimina o tratamento pela Groq dos dados autorizados enviados à API.
+- Baileys é open source (MIT), mas **não é oficial nem afiliado ao WhatsApp/Meta**. Há risco de restrição/banimento, desconexões e quebras de protocolo. Não há envio em massa, evasão, promessa contra detecção nem homologação empresarial.
+
+### Ajuda e verificações locais
 
 ```sh
 npm start -- --help
@@ -101,102 +159,110 @@ npm run typecheck
 npm test
 ```
 
-A ajuda pode ser consultada sem chave nem pareamento. Os comandos de verificação acima não substituem o teste real, autorizado por você, de vincular a conta e enviar um pedido por áudio. Eles não devem exigir chamadas pagas ou mensagens reais para rodar. Veja em [ARQUITETURA.md](ARQUITETURA.md) os limites do conector e o desenho futuro de gestão.
+A ajuda pode ser consultada sem chave nem pareamento; pelo npm, o hook de build do frontend ainda é executado antes dela. A existência desses comandos não afirma que foram executados na sua máquina nem homologa o WhatsApp real. Verificações locais não devem exigir chamadas pagas ou mensagens reais. O fluxo real de pareamento, voz, confirmação e entrega precisa ser distinguido de uma chamada isolada à Groq e do funcionamento local do painel.
 
 ---
 
-## Produto completo — escopo oficial planejado
+## Produto — escopo oficial e cobertura atual
 
-As seções a seguir preservam a visão do produto. **As sete funcionalidades e o dashboard ainda não estão implementados neste MVP conversacional.**
+As seções seguintes preservam a visão do documento oficial. **Gestão local e dashboard estão implementados; nem toda automação da visão de produto está pronta.** O estado de cada funcionalidade aparece na seção 5.
 
 ## 1. Descrição do projeto
 
-A SofIA transforma informações produzidas durante o trabalho — áudios, mensagens de texto, fotos, documentos e imagens — em registros organizados e ações de gestão para prestadores de serviços, profissionais autônomos e pequenos negócios.
+A SofIA transforma informações produzidas durante o trabalho — áudios, mensagens de texto, fotos, documentos e imagens — em registros organizados e ações de gestão para prestadores de serviços, profissionais autônomos e pequenos negócios. Na implementação atual, **o áudio é a entrada obrigatória do agente** e imagem/PDF podem ser referências citadas; texto solto não o ativa.
 
-Em vez de exigir o preenchimento de formulários e planilhas, a solução utiliza o **WhatsApp como principal interface operacional**. Um **Web Dashboard** complementa a operação com uma visão consolidada de clientes, obras, materiais, estoque, orçamentos e fluxo financeiro.
-
-A proposta é levar recursos de ERP e CRM à rotina do profissional, reduzindo a barreira de adoção de sistemas tradicionais de gestão.
+O **WhatsApp é a interface operacional por voz**; o **Web Dashboard local** complementa a operação com visão e edição de clientes, serviços, materiais, estoque, orçamentos, visitas e fluxo financeiro. A proposta é levar recursos de ERP/CRM à rotina do profissional, reduzindo a barreira de adoção sem confundir interpretação do modelo com transação confirmada.
 
 ## 2. Público-alvo
 
 ### Público primário
 
-Profissionais autônomos, MEIs, microempreendedores e pequenos empreiteiros que prestam serviços manuais, de manutenção e pequenas obras: pedreiros, pintores, carpinteiros, eletricistas, encanadores, gesseiros, mecânicos e técnicos de manutenção.
+Profissionais autônomos, MEIs, microempreendedores e pequenos empreiteiros de serviços manuais, manutenção e pequenas obras: pedreiros, pintores, carpinteiros, eletricistas, encanadores, gesseiros, mecânicos e técnicos de manutenção.
 
 ### Público secundário
 
-Pequenas equipes familiares, mestres de obras, supervisores de serviços, auxiliares administrativos e profissionais responsáveis por orçamentos e organização financeira.
+Pequenas equipes familiares, mestres de obras, supervisores de serviços, auxiliares administrativos e responsáveis por orçamentos e organização financeira. O escopo de público não significa que esta instalação local tenha contas de múltiplos operadores.
 
 ### Perfil de uso
 
-Rotina predominantemente operacional e de campo, pouco tempo para atividades administrativas e uso frequente do WhatsApp com clientes e fornecedores. A solução prioriza voz e imagem e reduz a necessidade de digitação extensa, múltiplos cadastros e navegação por interfaces complexas.
+Rotina operacional e de campo, pouco tempo administrativo e uso frequente do WhatsApp com clientes e fornecedores. Voz e imagem reduzem a digitação; o painel permite revisar os registros de forma explícita.
 
 ## 3. Problemas que a solução busca resolver
 
 | Problema | Resposta proposta |
 | --- | --- |
-| Falta de controle de materiais e estoque | Estruturar compras, comprovantes e consumo de insumos por serviço. |
-| Perda de informações no WhatsApp | Organizar especificações, preços, fotos e instruções por cliente e trabalho. |
-| Sobrecarga administrativa | Aproveitar os registros feitos durante o trabalho para reduzir o retrabalho posterior. |
-| Orçamentos pouco profissionais e perda de oportunidades | Gerar PDFs padronizados e acompanhar propostas e follow-ups. |
-| Dificuldade de adoção de ERPs e CRMs tradicionais | Usar comandos naturais no WhatsApp em vez de depender de formulários e menus. |
+| Falta de controle de materiais e estoque | Estruturar entradas, compras, comprovantes e consumo por serviço, distinguindo-os de pagamentos. |
+| Perda de informações no WhatsApp | Organizar dados por cliente/trabalho; diário multimodal e histórico completo de comunicação permanecem futuros. |
+| Sobrecarga administrativa | Converter pedidos por voz em propostas verificáveis, confirmadas antes da gravação. |
+| Orçamentos pouco profissionais | Gerar PDFs dos registros reais; follow-ups automáticos ainda não existem. |
+| Dificuldade de adoção de ERP/CRM | Usar linguagem natural no WhatsApp e revisão visual no painel, sem exigir infraestrutura empresarial externa. |
 
-## 4. Arquitetura e meio de atuação do produto completo
+## 4. Arquitetura e meio de atuação
 
-| Camada | Responsabilidade no produto |
+| Camada | Implementação atual |
 | --- | --- |
-| WhatsApp — interface operacional | Receber voz, texto, fotos, notas fiscais, recibos, imagens do local de trabalho e documentos. |
-| Agente multimodal de IA — inteligência | Transcrever áudios, analisar conteúdos, extrair e classificar informações, consultar e atualizar dados por ferramentas e gerar documentos. |
-| Web Dashboard — interface de gestão | Exibir serviços, clientes, orçamentos, estoque, finanças, histórico, indicadores e alertas. |
+| WhatsApp | Conta própria vinculada via Baileys; novos áudios autorizados e imagem/PDF citados. Gestão apenas no chat consigo mesmo. |
+| Agente e domínio | Groq transcreve/interpreta; ferramentas consultam/proponem ações. Código determinístico valida e confirma no SQLite. |
+| Web Dashboard | React/Vite, API Node local e os mesmos serviços de domínio; formulário salvo é confirmação explícita. |
 
-O painel web não substitui a conversa no WhatsApp. A separação técnica entre canal, agente e regras de negócio está detalhada na [proposta de arquitetura](ARQUITETURA.md).
+O painel não substitui a conversa, e nenhum dos dois usa a memória do modelo como banco de dados. A separação e a fronteira local estão detalhadas em [ARQUITETURA.md](ARQUITETURA.md).
 
-## 5. Funcionalidades principais — planejadas
+## 5. Funcionalidades principais — implementado e restante
 
 ### 5.1. Gerador inteligente de orçamentos por voz
 
-Interpretar o tipo de serviço, materiais, quantidades, valores, prazo, condições de pagamento e informações do cliente enviados pelo profissional. Estruturar esses dados em um **orçamento profissional em PDF**, pronto para envio ao cliente.
+**Visão oficial:** interpretar serviço, materiais, quantidades, valores, prazo, condições de pagamento e cliente para produzir um orçamento profissional em PDF, pronto para envio.
+
+**Implementado:** proposta estruturada por voz com confirmação, edição no painel, itens com unidade/quantidade/preço, desconto, validade, notas e status; cliente/serviço vinculados; número, totais e fotografia dos dados persistidos. PDF disponível para download e anexado ao confirmar o orçamento por voz no chat consigo mesmo. Dados faltantes devem ser perguntados, não inventados.
+
+**Limite:** encaminhar ao cliente é uma decisão manual do profissional; não há envio automático a terceiros, follow-up ou assinatura eletrônica. Condições complementares podem ser registradas nas notas, sem uma automação contratual separada.
 
 ### 5.2. Controle inteligente de estoque por voz ou imagem
 
-Interpretar fotos de notas fiscais, cupons e recibos para identificar materiais, quantidades, valores, data da compra e fornecedor. Atualizar o estoque e associar os materiais à respectiva obra ou serviço.
+**Visão oficial:** interpretar notas/cupons/recibos para identificar materiais, quantidades, valores, compra e fornecedor; atualizar estoque e vincular à obra. Exemplo: “Comprei 20 metros de fio de 2,5 mm para a obra da Ana.”
 
-Também deve aceitar registros por voz, como: “Comprei 20 metros de fio de 2,5 mm para a obra da Ana.”
+**Implementado:** catálogo, unidades, mínimos, entradas, consumos/saídas e ajustes em livro persistente, vínculo ao serviço, saldo não negativo e operações por voz com confirmação ou pelo painel. Foto/PDF citado por um áudio pode servir de referência para propor a movimentação.
+
+**Restante:** cadastro estruturado de fornecedores/compras e acervo permanente de comprovantes; leitura multimodal não é conciliação fiscal automática. Uma nota recebida sozinha não altera dados e uma entrada não lança despesa automaticamente.
 
 ### 5.3. Gestão inteligente de clientes
 
-Centralizar nome e contato, endereço, serviços, orçamentos, datas, materiais utilizados, valores, status, histórico de comunicação, fotos e registros da execução.
+**Visão oficial:** centralizar contatos, endereços, serviços, propostas, datas, materiais, valores, status, comunicação e registros da execução, com lembretes de visitas, retornos, pagamentos e propostas.
 
-Gerar lembretes para retornos, visitas, pagamentos e acompanhamento de orçamentos enviados.
+**Implementado:** cadastro de clientes e vínculos a serviços, visitas, orçamentos e caixa; agenda interna com fuso e verificação de sobreposição. As informações podem ser consultadas e alteradas pelo painel e por voz autorizada/confirmada.
+
+**Restante:** histórico completo de comunicação por cliente, fotos/diário, lembretes automáticos pelo WhatsApp e sincronização Google/Microsoft. Salvar uma visita não agenda uma mensagem.
 
 ### 5.4. Alertas inteligentes de materiais e desperdício
 
-Identificar materiais próximos de acabar, consumo acima da estimativa, divergências entre compras e utilização, necessidade de reposição e indícios de desperdício.
+**Visão oficial:** identificar falta de materiais, consumo acima da estimativa, divergências de compra/uso, reposição e indícios de desperdício; aprender com serviços anteriores.
 
-Com o acúmulo de registros, utilizar o histórico dos serviços para melhorar as estimativas de consumo de trabalhos futuros.
+**Implementado:** estoque mínimo configurável e indicação de materiais com saldo baixo, calculada sobre movimentações reais.
+
+**Restante:** previsão de consumo/desperdício, comparação com estimativas, aprendizado histórico e notificações proativas. Histórico insuficiente não deve produzir uma previsão inventada.
 
 ### 5.5. Kanban inteligente de obras e serviços
 
-Apresentar os trabalhos no painel web com o fluxo descrito no documento oficial:
+**Visão oficial e fluxo implementado:** **Aguardando visita → Orçamento → Aguardando aprovação → Em execução → Concluído**.
 
-**Aguardando visita → Orçamento → Aguardando aprovação → Em execução → Concluído**
+**Implementado:** serviços ligados ao cliente com descrição/endereço e etapa editável no painel ou proposta por voz, mediante confirmação. “Comecei hoje a reforma da cozinha da Ana” precisa identificar o serviço correto antes da alteração; nomes ambíguos não autorizam escolher outro trabalho.
 
-Atualizar o status a partir das interações no WhatsApp. Por exemplo, “Comecei hoje a reforma da cozinha da Ana” deve permitir identificar o serviço correspondente e atualizar seu andamento.
+**Limite:** não há mudança automática por uma conversa de terceiro nem encadeamento implícito entre aprovação do orçamento, estoque e recebimento.
 
 ### 5.6. Diário de bordo multimodal
 
-Organizar **fotos, vídeos, áudios e mensagens** por cliente, obra e data, mantendo um histórico cronológico da execução.
+**Visão oficial:** organizar **fotos, vídeos, áudios e mensagens** cronologicamente por cliente, obra e data para acompanhar progresso, alterações, comprovação, prestação de contas e relatórios.
 
-O diário deve apoiar o acompanhamento do progresso, o registro de etapas e alterações solicitadas pelo cliente, a comprovação dos serviços, a prestação de contas e a geração de relatórios de execução.
+**Ainda não implementado:** análise pontual de imagem/PDF e contexto textual do bot não constituem diário, biblioteca de anexos ou relatórios de execução. Vídeos não são aceitos no conector atual.
 
 ### 5.7. Controle financeiro simplificado
 
-Organizar entradas e saídas relacionadas aos serviços, incluindo receita por serviço, custos com materiais, pagamentos recebidos, valores pendentes, margem estimada, fluxo de caixa e despesas por obra.
+**Visão oficial:** receitas, despesas, materiais, recebimentos, pendências, margem estimada, fluxo de caixa e custos por obra. Exemplo: “O cliente me pagou R$ 2.000 hoje.”
 
-Transformar mensagens como “o cliente me pagou R$ 2.000 hoje” em registros financeiros estruturados, sem depender do preenchimento manual de planilhas.
+**Implementado:** lançamentos explícitos de receita/despesa em centavos, categoria/data, vínculos ao cliente/serviço e estados realizado, pendente e anulado; saldos e fluxo por período no painel. O áudio propõe o lançamento e um novo áudio o confirma sem duplicar a mesma operação.
+
+**Restante:** conciliação bancária, margem estimada consolidada por serviço e automações de cobrança. Compra, orçamento, despesa e pagamento continuam eventos distintos; proposta aprovada não é dinheiro recebido.
 
 ## 6. Diferencial da solução
 
-A SofIA se adapta à rotina existente em vez de exigir que o profissional mude seu comportamento para alimentar um sistema.
-
-**Comunicação natural + IA multimodal + automação + gestão empresarial:** um “ERP invisível” que organiza informações e executa ações nos bastidores, enquanto o profissional continua trabalhando e se comunicando pelo WhatsApp.
+A SofIA se adapta à rotina de campo sem retirar do profissional o controle das alterações: **comunicação natural + IA multimodal + registros verificáveis + gestão local**. O WhatsApp reduz a digitação; o dashboard e a confirmação explícita tornam os dados e os efeitos da operação visíveis.

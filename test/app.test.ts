@@ -15,16 +15,16 @@ const account = '5511000000000@s.whatsapp.net';
 const other = '5522000000000@s.whatsapp.net';
 const tick = () => new Promise<void>(resolve => setImmediate(resolve));
 function config(path: string, allowed: string[] = []): Config {
-  return { apiKey: 'synthetic-test-key', model: 'test', transcriptionModel: 'test', databasePath: path, allowedJids: new Set(allowed), pairOnly: false };
+  return { apiKey: 'synthetic-test-key', model: 'test', transcriptionModel: 'test', databasePath: path, allowedJids: new Set(allowed), pairOnly: false, dashboardOnly: false, dashboardPort: 0, timeZone: 'America/Sao_Paulo' };
 }
 function voice(id: string, chat = account): WAMessage {
   return { key: { id, remoteJid: chat, fromMe: chat === account }, message: { audioMessage: { mimetype: 'audio/ogg', ptt: true } } };
 }
-function harness(settings: Config, counts: { model: number; sends: number }, uncertainSend = false) {
+async function harness(settings: Config, counts: { model: number; sends: number }, uncertainSend = false) {
   let events!: Parameters<typeof createWhatsApp>[2];
   const input: PreparedInput = { audio: { bytes: Buffer.from('synthetic audio'), kind: 'audio', mimeType: 'audio/ogg', filename: 'audio.ogg' } };
-  const app = startApp(settings, {
-    openStore,
+  const app = await startApp(settings, {
+    openStore, startDashboard: async () => ({ url: 'http://127.0.0.1:0', close: async () => {} }),
     createAgent: () => ({ reply: async () => { counts.model++; return { userText: 'Transcrição de teste', replyText: 'Resposta de teste' }; } }),
     createWhatsApp: (_settings, _store, callbacks) => {
       events = callbacks;
@@ -44,7 +44,7 @@ test('an audio arriving as the worker goes idle is answered once despite duplica
   const dir = mkdtempSync(join(tmpdir(), 'sofia-app-'));
   const settings = config(join(dir, 'state.sqlite'));
   const counts = { model: 0, sends: 0 };
-  const running = harness(settings, counts);
+  const running = await harness(settings, counts);
   t.after(async () => { await running.app.stop(); rmSync(dir, { recursive: true, force: true }); });
   running.connect();
   running.receive(voice('voice-duplicate'));
@@ -60,13 +60,13 @@ test('an uncertain send is not retried or billed again on redelivery after resta
   const dir = mkdtempSync(join(tmpdir(), 'sofia-send-'));
   const settings = config(join(dir, 'state.sqlite'));
   const counts = { model: 0, sends: 0 };
-  const first = harness(settings, counts, true);
+  const first = await harness(settings, counts, true);
   t.after(async () => { await first.app.stop(); rmSync(dir, { recursive: true, force: true }); });
   first.connect();
   first.receive(voice('uncertain-delivery'));
   await tick();
   await first.app.stop();
-  const second = harness(settings, counts);
+  const second = await harness(settings, counts);
   t.after(() => second.app.stop());
   second.connect();
   second.receive(voice('uncertain-delivery'));
@@ -85,7 +85,7 @@ test('queued audio loses permission when the chat allowlist is revoked', { timeo
   store.enqueue(command);
   store.close();
   const counts = { model: 0, sends: 0 };
-  const running = harness(config(permitted.databasePath), counts);
+  const running = await harness(config(permitted.databasePath), counts);
   t.after(async () => { await running.app.stop(); rmSync(dir, { recursive: true, force: true }); });
   running.connect();
   await tick();
@@ -115,8 +115,8 @@ test('Groq quota failures reach the user with a safe diagnosis instead of a gene
       status: 429, headers: { 'content-type': 'application/json' },
     });
   });
-  const app = startApp(settings, {
-    openStore, createAgent,
+  const app = await startApp(settings, {
+    openStore, createAgent, startDashboard: async () => ({ url: 'http://127.0.0.1:0', close: async () => {} }),
     createWhatsApp: (_settings, _store, callbacks) => {
       events = callbacks;
       return {

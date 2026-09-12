@@ -7,6 +7,9 @@ export interface Config {
   databasePath: string;
   allowedJids: Set<string>;
   pairOnly: boolean;
+  dashboardOnly: boolean;
+  dashboardPort: number;
+  timeZone: string;
 }
 export interface Identity { id: string; lid?: string }
 export interface Attachment {
@@ -27,7 +30,8 @@ export interface Command {
 export interface Media { bytes: Buffer; mimeType: string; filename: string; kind: 'audio' | 'image' | 'pdf' }
 export interface PreparedInput { audio: Media; reference?: Media }
 export interface HistoryItem { role: 'user' | 'assistant'; content: string }
-export interface AgentReply { userText: string; replyText: string }
+export interface OutboundDocument { bytes: Buffer; mimeType: 'application/pdf'; filename: string }
+export interface AgentReply { userText: string; replyText: string; document?: OutboundDocument }
 export class UserInputError extends Error {
   constructor(message: string) { super(message); this.name = 'UserInputError'; }
 }

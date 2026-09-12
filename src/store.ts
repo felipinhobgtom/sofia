@@ -7,8 +7,11 @@ import type {
   AuthenticationCreds, AuthenticationState, SignalDataTypeMap, WAMessage, WAMessageKey,
 } from '@whiskeysockets/baileys';
 import type { AgentReply, Command, HistoryItem } from './types.ts';
+import type { BusinessStore } from './business-contract.ts';
+import { createBusinessStore } from './business-store.ts';
 
 export interface Store {
+  business: BusinessStore;
   auth: {
     state: AuthenticationState;
     saveCreds(update?: Partial<AuthenticationCreds>): Promise<void>;
@@ -66,7 +69,7 @@ function cacheChat(key: WAMessageKey | null | undefined): string | undefined {
   return jid && !jid.startsWith('@') ? jid : undefined;
 }
 
-export function openStore(databasePath: string): Store {
+export function openStore(databasePath: string, timeZone = 'America/Sao_Paulo'): Store {
   let fresh = databasePath === ':memory:';
   if (!fresh) {
     databasePath = resolve(databasePath);
@@ -214,6 +217,7 @@ export function openStore(databasePath: string): Store {
       },
     };
     return {
+      business: createBusinessStore(db, { timeZone }),
       auth: {
         state,
         async saveCreds(update) {

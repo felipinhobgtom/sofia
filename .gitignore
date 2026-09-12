@@ -6,3 +6,4 @@ data/
 *.sqlite
 *.sqlite-wal
 *.sqlite-shm
+web/dist/

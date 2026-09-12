@@ -5,14 +5,16 @@ import { createWhatsApp } from './whatsapp.ts';
 import { selectCommands } from './policy.ts';
 import { ProviderError, UserInputError } from './types.ts';
 import type { Command, Config, Identity } from './types.ts';
+import { startDashboard } from './dashboard.ts';
 
-export function startApp(config: Config, dependencies = {
-  openStore, createAgent, createWhatsApp,
+export async function startApp(config: Config, dependencies = {
+  openStore, createAgent, createWhatsApp, startDashboard,
   info: (text: string) => console.log(text),
   error: (text: string) => console.error(text),
   qr: (value: string) => qrcode.generate(value, { small: true }),
 }) {
-  const store = dependencies.openStore(config.databasePath);
+  const store = dependencies.openStore(config.databasePath, config.timeZone);
+  let dashboard: Awaited<ReturnType<typeof startDashboard>> | undefined;
   let transport: ReturnType<typeof createWhatsApp> | undefined;
   let agent: ReturnType<typeof createAgent> | undefined;
   let identity: Identity | undefined;
@@ -31,8 +33,9 @@ export function startApp(config: Config, dependencies = {
     connected = false;
     transport?.close();
     stopping = (async () => {
+      const closing = dashboard?.close().catch(() => { exitCode = 1; dependencies.error('[Dashboard] Falha ao encerrar o servidor.'); });
       try { await work; }
-      finally { store.close(); resolveDone(exitCode); }
+      finally { await closing; store.close(); resolveDone(exitCode); }
     })();
     return stopping;
   }
@@ -66,7 +69,7 @@ export function startApp(config: Config, dependencies = {
         const result = await agent!.reply(command, store.history(command), media);
         if (stopped || !connected || !authorized(command)) throw new Error('Conexão ou autorização mudou durante o processamento.');
         stage = 'sending';
-        await transport!.send(command, result.replyText);
+        await transport!.send(command, result.replyText, result.document);
         stage = 'persisting';
         store.complete(command, result);
         dependencies.info('[SofIA] Comando respondido.');
@@ -97,9 +100,16 @@ export function startApp(config: Config, dependencies = {
   }
 
   try {
-    const interrupted = store.recoverInterrupted();
-    if (interrupted) dependencies.info('[SofIA] Execuções interrompidas foram marcadas como falhas, sem reenvio automático.');
-    if (!config.pairOnly) agent = dependencies.createAgent(config);
+    if (!config.pairOnly) {
+      dashboard = await dependencies.startDashboard({ business: store.business, port: config.dashboardPort });
+      dependencies.info('[Dashboard] ' + dashboard.url + ' (acesso local)');
+    }
+    if (config.dashboardOnly) return { done, stop };
+    if (!config.pairOnly) {
+      const interrupted = store.recoverInterrupted();
+      if (interrupted) dependencies.info('[SofIA] Execuções interrompidas foram marcadas como falhas, sem reenvio automático.');
+      agent = dependencies.createAgent(config, store.business);
+    }
     transport = dependencies.createWhatsApp(config, store, {
       onQr(value) {
         if (stopped) return;
@@ -129,6 +139,7 @@ export function startApp(config: Config, dependencies = {
     });
   } catch (error) {
     transport?.close();
+    await dashboard?.close();
     store.close();
     throw error;
   }

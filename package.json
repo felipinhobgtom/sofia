@@ -7,26 +7,41 @@
     "node": ">=24.0.0"
   },
   "scripts": {
+    "prestart": "npm run build",
     "start": "node --env-file-if-exists=.env src/index.ts",
+    "predashboard": "npm run build",
+    "dashboard": "node --env-file-if-exists=.env src/index.ts --dashboard",
+    "build": "vite build",
     "pair": "node --env-file-if-exists=.env src/index.ts --pair",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p web/tsconfig.json",
     "test": "node --test test/*.test.ts",
     "postinstall": "patch-package"
   },
   "dependencies": {
+    "@js-temporal/polyfill": "0.5.1",
     "@napi-rs/canvas": "1.0.2",
     "@openai/agents": "0.18.0",
     "@whiskeysockets/baileys": "7.0.0-rc14",
+    "lucide-react": "1.45.0",
     "openai": "7.15.0",
     "patch-package": "8.0.1",
     "pdfjs-dist": "6.3.289",
+    "pdfkit": "0.20.2",
     "pino": "^9.6.0",
     "qrcode-terminal": "0.12.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "recharts": "3.10.1",
     "zod": "^4.0.0"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
+    "@types/pdfkit": "0.17.6",
     "@types/qrcode-terminal": "^0.12.2",
-    "typescript": "^5.9.0"
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.1",
+    "typescript": "^5.9.0",
+    "vite": "8.3.0"
   }
 }
