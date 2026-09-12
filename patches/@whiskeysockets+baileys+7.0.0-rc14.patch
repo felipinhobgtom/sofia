@@ -1,0 +1,10 @@
+diff --git a/node_modules/@whiskeysockets/baileys/lib/Types/Bussines.d.ts b/node_modules/@whiskeysockets/baileys/lib/Types/Bussines.d.ts
+index f42bd1b..7beaf47 100644
+--- a/node_modules/@whiskeysockets/baileys/lib/Types/Bussines.d.ts
++++ b/node_modules/@whiskeysockets/baileys/lib/Types/Bussines.d.ts
+@@ -1,4 +1,4 @@
+-import type { proto } from '../../WAProto';
++import type { proto } from '../../WAProto/index.js';
+ export type DayOfWeekBussines = 'sun' | 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat';
+ export type HoursDay = {
+     day: DayOfWeekBussines;

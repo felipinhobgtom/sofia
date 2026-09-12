@@ -1,0 +1,22 @@
+diff --git a/node_modules/whatsapp-rust-bridge/pkg/whatsapp_rust_bridge.d.ts b/node_modules/whatsapp-rust-bridge/pkg/whatsapp_rust_bridge.d.ts
+index ef7c279..5b8dfe8 100644
+--- a/node_modules/whatsapp-rust-bridge/pkg/whatsapp_rust_bridge.d.ts
++++ b/node_modules/whatsapp-rust-bridge/pkg/whatsapp_rust_bridge.d.ts
+@@ -168,7 +168,7 @@ export class NoiseSession {
+     clearBuffer(): void;
+     decodeFrame(new_data: Uint8Array): Array<any>;
+     decrypt(ciphertext: Uint8Array): Uint8Array;
+-    encodeFrame(node: EncodingNode): Uint8Array;
++    encodeFrame(node: BinaryNode): Uint8Array;
+     encodeFrameRaw(data: Uint8Array): Uint8Array;
+     encrypt(plaintext: Uint8Array): Uint8Array;
+     finishInit(): void;
+@@ -251,7 +251,7 @@ export function calculateSignature(private_key_bytes: Uint8Array, message: Uint8
+ 
+ export function decodeNode(data: Uint8Array): InternalBinaryNode;
+ 
+-export function encodeNode(node_val: EncodingNode): Uint8Array;
++export function encodeNode(node_val: BinaryNode): Uint8Array;
+ 
+ export function expandAppStateKeys(key_data: Uint8Array): ExpandedAppStateKeys;
+ 
